@@ -1,1 +1,67 @@
 
+function fn() {
+
+  var env = karate.env;
+  if (!env) {
+    env = 'lab';
+  }
+
+  var config = {};
+
+  // =========================
+  // AMBIENTES
+  // =========================
+
+  if (env == 'lab') {
+
+    config.busHost = 'http://wmblab.davivienda.loc:9212';
+    config.awsHost = 'https://privateapilab.davivienda.loc';
+
+  } else if (env == 'des') {
+
+    config.busHost = 'http://wmbdes.davivienda.loc:9012';
+    config.awsHost = 'https://privateapides.davivienda.loc';
+
+  }
+
+  // =========================
+  // PATHS
+  // =========================
+
+  config.busPath = '/ESBService/TechnologyAdapter';
+  config.awsPath = '/stage/ESBService/ConsultarCuentaClienteP2M';
+
+  // =========================
+  // HEADERS
+  // =========================
+
+  config.busHeaders = {
+    'Content-Type': 'text/xml; charset=UTF-8',
+    'SOAPAction': ''
+  };
+
+  config.awsHeaders = {
+    'Content-Type': 'text/xml; charset=UTF-8',
+    'x-api-key': karate.properties['aws.api.key'],
+    'x-apigw-api-id': karate.properties['aws.api.id'],
+    'X-Name': 'PN-SUPERAPP',
+    'X-Rquid': java.util.UUID.randomUUID() + '',
+    'SOAPAction': ''
+  };
+
+  // =========================
+  // SSL
+  // =========================
+
+  karate.configure('ssl', {
+    keyStore: 'classpath:tester.jks',
+    keyStorePassword: karate.properties['keystore.password']
+  });
+
+  karate.configure('connectTimeout', 5000);
+  karate.configure('readTimeout', 5000);
+  karate.configure('logPrettyRequest', true);
+  karate.configure('logPrettyResponse', true);
+
+  return config;
+}
