@@ -1,1 +1,51 @@
 
+function fn() {
+
+  // ===== ENV =====
+  var env = karate.env;
+  if (!env) {
+    env = 'lab';
+  }
+
+  karate.log('karate.env:', env);
+
+  var config = {};
+
+  // ===== HOSTS (desde properties) =====
+  config.busHost = karate.properties['bus.host'];
+  config.awsHost = karate.properties['aws.host'];
+
+  // ===== PATHS =====
+  config.busPath = '/ESBService/TechnologyAdapter';
+  config.awsPath = '/stage/ESBService/ConsultarCuentaClienteP2M';
+
+  // ===== HEADERS BUS =====
+  config.busHeaders = {
+    'Content-Type': 'text/xml; charset=UTF-8',
+    'SOAPAction': ''
+  };
+
+  // ===== HEADERS AWS =====
+  config.awsHeaders = {
+    'Content-Type': 'text/xml; charset=UTF-8',
+    'x-api-key': karate.properties['aws.api.key'],
+    'x-apigw-api-id': karate.properties['aws.api.id'],
+    'X-Name': 'PN_SUPERAPP',
+    'X-Rquid': java.util.UUID.randomUUID() + '',
+    'SOAPAction': ''
+  };
+
+  // ===== SSL =====
+  karate.configure('ssl', {
+    keyStore: 'classpath:tester.jks',
+    keyStorePassword: karate.properties['keystore.password']
+  });
+
+  // ===== TIMEOUTS =====
+  karate.configure('connectTimeout', 5000);
+  karate.configure('readTimeout', 5000);
+  karate.configure('logPrettyRequest', true);
+  karate.configure('logPrettyResponse', true);
+
+  return config;
+}
