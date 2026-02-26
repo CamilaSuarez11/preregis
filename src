@@ -1,26 +1,31 @@
 function fn() {
 
+  var env = karate.env;
+  if (!env) {
+    env = 'lab';
+  }
+
   var config = {};
 
-  // Hosts
-  config.awsHost = karate.properties['aws.host'];
-  config.busHost = karate.properties['bus.host'];
+  // 👇 ESTA ES LA LÍNEA QUE FALTABA
+  var properties = read('classpath:' + env + '.properties');
 
-  // Paths
-  config.awsPath = '/stage/ESBService/ConsultarCuentaClienteP2M';
+  // Hosts
+  config.awsHost = properties['aws.host'];
+  config.busHost = properties['bus.host'];
 
   // Headers
   config.awsHeaders = {
     'Content-Type': 'text/xml; charset=UTF-8',
-    'x-api-key': karate.properties['aws.api.key'],
-    'x-apigw-api-id': karate.properties['aws.api.id'],
+    'x-api-key': properties['aws.api.key'],
+    'x-apigw-api-id': properties['aws.api.id'],
     'SOAPAction': ''
   };
 
   // SSL
   karate.configure('ssl', {
     keyStore: 'classpath:tester.jks',
-    keyStorePassword: karate.properties['keystore.password']
+    keyStorePassword: properties['keystore.password']
   });
 
   karate.configure('connectTimeout', 5000);
