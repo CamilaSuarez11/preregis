@@ -1,1 +1,8 @@
 
+function fn() {
+
+  var config = {};
+  config.awsHost = 'https://google.com';
+
+  return config;
+}
