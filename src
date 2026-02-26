@@ -1,1 +1,30 @@
+function fn() {
 
+  var config = {};
+
+  // Hosts
+  config.awsHost = karate.properties['aws.host'];
+  config.busHost = karate.properties['bus.host'];
+
+  // Paths
+  config.awsPath = '/stage/ESBService/ConsultarCuentaClienteP2M';
+
+  // Headers
+  config.awsHeaders = {
+    'Content-Type': 'text/xml; charset=UTF-8',
+    'x-api-key': karate.properties['aws.api.key'],
+    'x-apigw-api-id': karate.properties['aws.api.id'],
+    'SOAPAction': ''
+  };
+
+  // SSL
+  karate.configure('ssl', {
+    keyStore: 'classpath:tester.jks',
+    keyStorePassword: karate.properties['keystore.password']
+  });
+
+  karate.configure('connectTimeout', 5000);
+  karate.configure('readTimeout', 5000);
+
+  return config;
+}
