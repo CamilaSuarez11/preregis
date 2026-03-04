@@ -1,13 +1,68 @@
+scenario,canal,numNumeroCelular,status,codMsg
+exito,37,3228854532,200,0
+exito,16,3228854532,200,0
+exito,1,3228854532,200,0
+
+error9837,37,3115511685,200,9837
+error9837,16,3115511685,200,9837
+error9837,1,3115511685,200,9837
+
+error6082,37,,200,6082
+error6082,16,,200,6082
+error6082,1,,200,6082
+
+error3200,37,3228854532,200,3200
+error3200,16,3228854532,200,3200
+error3200,1,3228854532,200,3200
+
+sinHeaders,37,3228854532,403,403
+sinHeaders,16,3228854532,403,403
+sinHeaders,1,3228854532,403,403
+
+error500,37,3115511685,500,500
+error500,16,3115511685,500,500
+error500,1,3115511685,500,500
+
+
+__________________
+Feature: Pruebas servicio ConsultarCuentaClienteP2M
 
 Background:
 
-* configure headers =
+* url awsHost
+* path awsPath
+* headers awsHeaders
+
+
+Scenario Outline: Validación servicio <scenario> canal <canal>
+
+* def template = read('soap-request.xml')
+
+* def data =
 """
 {
-  'Content-Type': 'text/xml; charset=UTF-8',
-  'x-api-key': 'lALuu2WMytzffaWqtKL2',
-  'x-apigw-api-id': 'wpmogyegl2',
-  'X-Name': 'PN-SUPERAPP',
-  'X-RqUid': java.util.UUID.randomUUID() + ''
+ canal: '<canal>',
+ numNumeroCelular: '<numNumeroCelular>'
 }
 """
+
+* def requestXml = karate.replace(template, data)
+
+Given request requestXml
+When method POST
+Then status <status>
+
+* print response
+
+# validación dinámica
+
+* if (<codMsg> == 0) karate.match(response, "//*[local-name()='codMsgRespuesta'] == '0'")
+
+* if (<codMsg> == 9837) karate.match(response, "//*[local-name()='codMsgRespuesta'] == '9837'")
+
+* if (<codMsg> == 6082) karate.match(response, "//*[local-name()='codMsgRespuesta'] == '6082'")
+
+* if (<codMsg> == 3200) karate.match(response, "//*[local-name()='faultcode'] == '3200'")
+
+Examples:
+| read('classpath:data/consultaCuentaData.csv') |
