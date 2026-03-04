@@ -1,1 +1,13 @@
 
+Background:
+
+* configure headers =
+"""
+{
+  'Content-Type': 'text/xml; charset=UTF-8',
+  'x-api-key': 'lALuu2WMytzffaWqtKL2',
+  'x-apigw-api-id': 'wpmogyegl2',
+  'X-Name': 'PN-SUPERAPP',
+  'X-RqUid': java.util.UUID.randomUUID() + ''
+}
+"""
