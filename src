@@ -1,1 +1,6 @@
 
+curl -v \
+-H "Content-Type: text/xml;charset=UTF-8" \
+-H "SOAPAction: ConsultaInscripcionesMonedero" \
+-d @request.xml \
+http://wmblab.davivienda.loc:7861/WebServiceTechnologyAdapter_MsgSetSOAP_HTTP_Service
