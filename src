@@ -1,9 +1,1 @@
-caso,tag,canal,status,codigo
-Caso exitoso canal 37,exito,37,200,0
-Caso exitoso canal 16,exito,16,200,0
-Error 3020 canal 37,error3020,37,200,3020
-Error 3020 canal 16,error3020,16,200,3020
-Error estructura 6082 canal 37,error6082,37,200,6082
-Error estructura 6082 canal 16,error6082,16,200,6082
-Error headers 403 canal 37,error403,37,403,NULL
-Error headers 403 canal 16,error403,16,403,NULL
+
