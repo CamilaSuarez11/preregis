@@ -1,1 +1,93 @@
+@exito_single
+Scenario: caso exitoso SINGLE
 
+•⁠  ⁠def dominio = 'accountsws'
+•⁠  ⁠def headers = buildHeaders(xname, dominio)
+•⁠  ⁠def canalId = getCanalId(xname)
+
+•⁠  ⁠url awsHost
+•⁠  ⁠path '/stage/ESBService/ConsultaCuentasInscritas'
+•⁠  ⁠headers headers
+
+•⁠  ⁠def requestXml = read('soap-request.xml')
+•⁠  ⁠set requestXml //*[local-name()='canal'] = canalId
+
+Given request requestXml
+When method POST
+Then status 200
+
+•⁠  ⁠def responseCuentasInscritasAWS = response
+
+
+_________
+@exito_single
+Scenario: caso exitoso SINGLE
+
+•⁠  ⁠def config = karate.get('config')
+•⁠  ⁠def port = '7861'
+•⁠  ⁠url busHost + ':' + port
+•⁠  ⁠path '/WebServiceTechnologyAdapter_MsgSetSOAP_HTTP_Service'
+
+•⁠  ⁠def requestXml = read('soap-request.xml')
+•⁠  ⁠set requestXml //*[local-name()='canal'] = canal
+
+Given request requestXml
+When method POST
+Then status 200
+
+•⁠  ⁠def responseCuentasInscritasBUS = response
+___________
+
+
+Feature: Validacion E2E AWS vs BUS consultaCuentasInscritas
+
+Scenario: comparación aws vs bus
+
+•⁠  ⁠def config = karate.callSingle('classpath:karate-config.js')
+
+# ===============================
+# 🔹 SUPERAPP
+# ===============================
+
+•⁠  ⁠def aws1 = call read('classpath:com/davivienda/soap/aws/consultaCuentasInscritas/consultaCuentasInscritas.feature@exito_single')
+{ xname: 'PN-SUPERAPP' }
+
+•⁠  ⁠def bus1 = call read('classpath:com/davivienda/soap/bus/consultarCuentasInscritas/consultaCuentasInscritas.feature@exito_single')
+{ xname: 'PN-SUPERAPP' }
+
+# ===============================
+# 🔹 WEB
+# ===============================
+
+•⁠  ⁠def aws2 = call read('classpath:com/davivienda/soap/aws/consultaCuentasInscritas/consultaCuentasInscritas.feature@exito_single')
+{ xname: 'PN-WEB' }
+
+•⁠  ⁠def bus2 = call read('classpath:com/davivienda/soap/bus/consultarCuentasInscritas/consultaCuentasInscritas.feature@exito_single')
+{ xname: 'PN-WEB' }
+
+# ===============================
+# 🔹 FUNCION
+# ===============================
+
+•⁠  ⁠def get =
+"""
+function(xml, field){
+  return karate.xmlPath(xml, "//*[local-name()='" + field + "']")
+}
+"""
+
+# ===============================
+# 🔹 VALIDACIONES SUPERAPP
+# ===============================
+
+•⁠  ⁠match aws1.responseStatus == bus1.responseStatus
+•⁠  ⁠match get(bus1.responseCuentasInscritasBUS, 'codMsgRespuesta') == get(aws1.responseCuentasInscritasAWS, 'codMsgRespuesta')
+•⁠  ⁠match get(bus1.responseCuentasInscritasBUS, 'total') == get(aws1.responseCuentasInscritasAWS, 'total')
+
+# ===============================
+# 🔹 VALIDACIONES WEB
+# ===============================
+
+•⁠  ⁠match aws2.responseStatus == bus2.responseStatus
+•⁠  ⁠match get(bus2.responseCuentasInscritasBUS, 'codMsgRespuesta') == get(aws2.responseCuentasInscritasAWS, 'codMsgRespuesta')
+•⁠  ⁠match get(bus2.responseCuentasInscritasBUS, 'total') == get(aws2.responseCuentasInscritasAWS, 'total')
