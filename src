@@ -1,1 +1,50 @@
+Scenario: caso exitoso 200 comparación aws bus
 
+# 🔹 cargar config correctamente
+•⁠  ⁠def config = karate.callSingle('classpath:karate-config.js')
+
+# 🔹 ejecutar features y pasar config
+•⁠  ⁠def awsList = call read('classpath:com/davivienda/soap/aws/consultaCuentasInscritas/consultaCuentasInscritas.feature@exito') config
+•⁠  ⁠def busList = call read('classpath:com/davivienda/soap/bus/consultarCuentasInscritas/consultaCuentasInscritas.feature@exito') config
+
+# 🔹 validar status
+•⁠  ⁠match awsList[0].responseStatus == busList[0].responseStatus
+•⁠  ⁠match awsList[1].responseStatus == busList[1].responseStatus
+
+# 🔹 helper xml
+•⁠  ⁠def get =
+"""
+function(xml, field){
+  return karate.xmlPath(xml, "//*[local-name()='" + field + "']")
+}
+"""
+
+# =========================================================
+# 🔥 CANAL 1 (PN-SUPERAPP)
+# =========================================================
+
+•⁠  ⁠def aws1 = awsList[0].responseCuentasInscritasAWS
+•⁠  ⁠def bus1 = busList[0].responseCuentasInscritasBUS
+
+•⁠  ⁠match get(bus1, 'codMsgRespuesta') == get(aws1, 'codMsgRespuesta')
+•⁠  ⁠match get(bus1, 'total') == get(aws1, 'total')
+•⁠  ⁠match get(bus1, 'codigoDeRuta') == get(aws1, 'codigoDeRuta')
+•⁠  ⁠match get(bus1, 'codigoDeBanco') == get(aws1, 'codigoDeBanco')
+•⁠  ⁠match get(bus1, 'numeroDeCuenta') == get(aws1, 'numeroDeCuenta')
+•⁠  ⁠match get(bus1, 'nombreCliente') == get(aws1, 'nombreCliente')
+•⁠  ⁠match get(bus1, 'numeroDeIdentificacionCuenta') == get(aws1, 'numeroDeIdentificacionCuenta')
+
+# =========================================================
+# 🔥 CANAL 2 (PN-WEB)
+# =========================================================
+
+•⁠  ⁠def aws2 = awsList[1].responseCuentasInscritasAWS
+•⁠  ⁠def bus2 = busList[1].responseCuentasInscritasBUS
+
+•⁠  ⁠match get(bus2, 'codMsgRespuesta') == get(aws2, 'codMsgRespuesta')
+•⁠  ⁠match get(bus2, 'total') == get(aws2, 'total')
+•⁠  ⁠match get(bus2, 'codigoDeRuta') == get(aws2, 'codigoDeRuta')
+•⁠  ⁠match get(bus2, 'codigoDeBanco') == get(aws2, 'codigoDeBanco')
+•⁠  ⁠match get(bus2, 'numeroDeCuenta') == get(aws2, 'numeroDeCuenta')
+•⁠  ⁠match get(bus2, 'nombreCliente') == get(aws2, 'nombreCliente')
+•⁠  ⁠match get(bus2, 'numeroDeIdentificacionCuenta') == get(aws2, 'numeroDeIdentificacionCuenta')
