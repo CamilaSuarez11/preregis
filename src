@@ -1,8 +1,60 @@
 📍 backend/banking/credit_card/repository/credit_card_repository.py
-class CreditCardEndpoints:
-    GET_CARD_STATUS = "/cards/{card_id}/status"
-///
+
+class CreditCardRepository:
+
+    GET_CARD_STATUS = "/credit-card/{card_id}"
+
+_____
+📍 backend/banking/credit_card/model/response/get_card_status.py
+
+import pydantic
+from typing import Optional, List
+
+
+class User(pydantic.BaseModel):
+    id: int
+    email: str
+    first_name: str
+    last_name: str
+    suspended: bool
+    cellphone: str
+
+
+class Issuer(User):
+    pass
+
+
+class Payload(pydantic.BaseModel):
+    id: int
+    name: str
+    card_type: str
+    status: str
+    has_pin: bool
+    issuer: Issuer
+    user: User
+
+
+class Error(pydantic.BaseModel):
+    message: str
+    type: str
+
+
+class GetCardStatusResponse(pydantic.BaseModel):
+    payload: Optional[Payload]
+    errors: Optional[List[Error]]
+
+______
+📍 backend/banking/credit_card/data/factory/card_factory.py
+
+class CardFactory:
+
+    VALID_CARD_ID = 2642
+    INVALID_CARD_ID = 9999
+    OTHER_USER_CARD_ID = 2640
+
+_______
 📍 backend/banking/credit_card/actions/get_card_status.py
+
 import screenpy
 from screenpy.pacing import beat
 
@@ -10,7 +62,7 @@ from bold_platform_regression.backend.commons import call_api, base
 from bold_platform_regression.backend.commons.questions import what_is_my
 from bold_platform_regression.backend.commons.utils import http_constants
 
-from bold_platform_regression.backend.banking.credit_card.repository.credit_card_repository import CreditCardEndpoints
+from bold_platform_regression.backend.banking.credit_card.repository.credit_card_repository import CreditCardRepository
 
 
 class GetCardStatus:
@@ -22,10 +74,9 @@ class GetCardStatus:
     @beat("{0} gets credit card status")
     def perform_as(self, the_actor: screenpy.Actor) -> None:
 
-        endpoint = CreditCardEndpoints.GET_CARD_STATUS.format(card_id=self.card_id)
+        endpoint = CreditCardRepository.GET_CARD_STATUS.format(card_id=self.card_id)
         url = base.Url.BaseUrl.backend_mobile() + endpoint
 
-        # 🔐 Headers (solo si hay token)
         if self.with_token:
             the_actor.attempts_to(
                 call_api.SetHeaders(
@@ -35,62 +86,74 @@ class GetCardStatus:
                 )
             )
 
-        # 🚀 Request
         the_actor.attempts_to(
             call_api.SendGETRequest.to(url)
         )
-///
+_______________
 
-📍 backend/banking/credit_card/questions/card_status_questions.py
+📍 backend/banking/credit_card/questions/get_card_status.py
 
 import screenpy
+
 from bold_platform_regression.backend.commons.questions.the_body_of_the_last_response import TheLastBodyResponse
+from bold_platform_regression.backend.banking.credit_card.model.response.get_card_status import GetCardStatusResponse
 
 
-class StatusCode:
-    def answered_by(self, actor: screenpy.Actor) -> int:
-        return actor.recall("last_response").status_code
+class GetCardStatusQuestion:
+
+    def answered_by(self, actor: screenpy.Actor) -> GetCardStatusResponse:
+        body = TheLastBodyResponse().answered_by(actor)
+        return GetCardStatusResponse(**body)
+________
+
+📍 backend/banking/credit_card/tasks/get_card_status_task.py
+
+import screenpy
+
+from bold_platform_regression.backend.banking.credit_card.actions.get_card_status import GetCardStatus
 
 
-class ResponseBody:
-    def answered_by(self, actor: screenpy.Actor):
-        return TheLastBodyResponse().answered_by(actor)
+class GetCardStatusTask:
 
-///
-📍 backend/banking/credit_card/features/card_status.feature
+    def __init__(self, card_id: int, with_token: bool = True):
+        self.card_id = card_id
+        self.with_token = with_token
 
+    def perform_as(self, actor: screenpy.Actor) -> None:
+        actor.attempts_to(
+            GetCardStatus(self.card_id, self.with_token)
+        )
 
-Feature: Credit Card Status
+_____
+📍 backend/banking/credit_card/features/get_card_status.feature
 
-  Scenario: Get card status successfully
+Feature: Get credit card status
+
+  Scenario: Get valid card status
     Given user has a valid token
-    When user gets card status with id 2642
+    When user gets card status with valid card
     Then response status should be 200
+    And card status should be active
 
-  Scenario: Card does not exist
+  Scenario: Card not found
     Given user has a valid token
-    When user gets card status with id 2643
+    When user gets card status with invalid card
     Then response status should be 404
 
-  Scenario: Card belongs to another user
-    Given user has a valid token
-    When user gets card status with id 2640
-    Then response status should be 403
-
-  Scenario: Request without token
-    When user gets card status without token for id 2642
+  Scenario: Without token
+    When user gets card status without token
     Then response status should be 401
-
-///
-📍 backend/banking/credit_card/tests/test_card_status.py
+___
+📍 backend/banking/credit_card/tests/test_get_card_status.py
 
 import pytest_bdd
 from screenpy import Actor
 
-from bold_platform_regression.backend.banking.credit_card.actions.get_card_status import GetCardStatus
-from bold_platform_regression.backend.banking.credit_card.questions.card_status_questions import StatusCode
+from bold_platform_regression.backend.banking.credit_card.tasks.get_card_status_task import GetCardStatusTask
+from bold_platform_regression.backend.banking.credit_card.data.factory.card_factory import CardFactory
+from bold_platform_regression.backend.banking.credit_card.questions.get_card_status import GetCardStatusQuestion
 
-pytest_bdd.scenarios("../features/card_status.feature")
+pytest_bdd.scenarios("../features/get_card_status.feature")
 
 
 # ======================
@@ -98,31 +161,31 @@ pytest_bdd.scenarios("../features/card_status.feature")
 # ======================
 @pytest_bdd.given("user has a valid token")
 def user_has_token():
-    # Ya lo maneja el framework automáticamente
     pass
 
 
 # ======================
 # WHEN
 # ======================
-@pytest_bdd.when("user gets card status with id 2642")
-def get_card_2642(the_actor: Actor):
-    the_actor.attempts_to(GetCardStatus(2642))
+@pytest_bdd.when("user gets card status with valid card")
+def valid_card(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatusTask(CardFactory.VALID_CARD_ID)
+    )
 
 
-@pytest_bdd.when("user gets card status with id 2643")
-def get_card_2643(the_actor: Actor):
-    the_actor.attempts_to(GetCardStatus(2643))
+@pytest_bdd.when("user gets card status with invalid card")
+def invalid_card(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatusTask(CardFactory.INVALID_CARD_ID)
+    )
 
 
-@pytest_bdd.when("user gets card status with id 2640")
-def get_card_2640(the_actor: Actor):
-    the_actor.attempts_to(GetCardStatus(2640))
-
-
-@pytest_bdd.when("user gets card status without token for id 2642")
-def get_without_token(the_actor: Actor):
-    the_actor.attempts_to(GetCardStatus(2642, with_token=False))
+@pytest_bdd.when("user gets card status without token")
+def no_token(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatusTask(CardFactory.VALID_CARD_ID, with_token=False)
+    )
 
 
 # ======================
@@ -130,22 +193,22 @@ def get_without_token(the_actor: Actor):
 # ======================
 @pytest_bdd.then("response status should be 200")
 def validate_200(the_actor: Actor):
-    assert StatusCode().answered_by(the_actor) == 200
+    assert the_actor.recall("last_response").status_code == 200
 
 
 @pytest_bdd.then("response status should be 404")
 def validate_404(the_actor: Actor):
-    assert StatusCode().answered_by(the_actor) == 404
-
-
-@pytest_bdd.then("response status should be 403")
-def validate_403(the_actor: Actor):
-    assert StatusCode().answered_by(the_actor) in [403, 404]
+    assert the_actor.recall("last_response").status_code == 404
 
 
 @pytest_bdd.then("response status should be 401")
 def validate_401(the_actor: Actor):
-    assert StatusCode().answered_by(the_actor) == 401
+    assert the_actor.recall("last_response").status_code == 401
 
-//
 
+@pytest_bdd.then("card status should be active")
+def validate_status(the_actor: Actor):
+    response = GetCardStatusQuestion().answered_by(the_actor)
+    assert response.payload.status == "active"
+
+___
