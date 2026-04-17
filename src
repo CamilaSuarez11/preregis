@@ -1,1 +1,151 @@
+📍 backend/banking/credit_card/repository/credit_card_repository.py
+class CreditCardEndpoints:
+    GET_CARD_STATUS = "/cards/{card_id}/status"
+///
+📍 backend/banking/credit_card/actions/get_card_status.py
+import screenpy
+from screenpy.pacing import beat
+
+from bold_platform_regression.backend.commons import call_api, base
+from bold_platform_regression.backend.commons.questions import what_is_my
+from bold_platform_regression.backend.commons.utils import http_constants
+
+from bold_platform_regression.backend.banking.credit_card.repository.credit_card_repository import CreditCardEndpoints
+
+
+class GetCardStatus:
+
+    def __init__(self, card_id: int, with_token: bool = True):
+        self.card_id = card_id
+        self.with_token = with_token
+
+    @beat("{0} gets credit card status")
+    def perform_as(self, the_actor: screenpy.Actor) -> None:
+
+        endpoint = CreditCardEndpoints.GET_CARD_STATUS.format(card_id=self.card_id)
+        url = base.Url.BaseUrl.backend_mobile() + endpoint
+
+        # 🔐 Headers (solo si hay token)
+        if self.with_token:
+            the_actor.attempts_to(
+                call_api.SetHeaders(
+                    http_constants.HEADER_NAME_AUTH,
+                    http_constants.HEADER_VALUE_OAUTH2 %
+                    what_is_my.api_token().answered_by(the_actor)
+                )
+            )
+
+        # 🚀 Request
+        the_actor.attempts_to(
+            call_api.SendGETRequest.to(url)
+        )
+///
+
+📍 backend/banking/credit_card/questions/card_status_questions.py
+
+import screenpy
+from bold_platform_regression.backend.commons.questions.the_body_of_the_last_response import TheLastBodyResponse
+
+
+class StatusCode:
+    def answered_by(self, actor: screenpy.Actor) -> int:
+        return actor.recall("last_response").status_code
+
+
+class ResponseBody:
+    def answered_by(self, actor: screenpy.Actor):
+        return TheLastBodyResponse().answered_by(actor)
+
+///
+📍 backend/banking/credit_card/features/card_status.feature
+
+
+Feature: Credit Card Status
+
+  Scenario: Get card status successfully
+    Given user has a valid token
+    When user gets card status with id 2642
+    Then response status should be 200
+
+  Scenario: Card does not exist
+    Given user has a valid token
+    When user gets card status with id 2643
+    Then response status should be 404
+
+  Scenario: Card belongs to another user
+    Given user has a valid token
+    When user gets card status with id 2640
+    Then response status should be 403
+
+  Scenario: Request without token
+    When user gets card status without token for id 2642
+    Then response status should be 401
+
+///
+📍 backend/banking/credit_card/tests/test_card_status.py
+
+import pytest_bdd
+from screenpy import Actor
+
+from bold_platform_regression.backend.banking.credit_card.actions.get_card_status import GetCardStatus
+from bold_platform_regression.backend.banking.credit_card.questions.card_status_questions import StatusCode
+
+pytest_bdd.scenarios("../features/card_status.feature")
+
+
+# ======================
+# GIVEN
+# ======================
+@pytest_bdd.given("user has a valid token")
+def user_has_token():
+    # Ya lo maneja el framework automáticamente
+    pass
+
+
+# ======================
+# WHEN
+# ======================
+@pytest_bdd.when("user gets card status with id 2642")
+def get_card_2642(the_actor: Actor):
+    the_actor.attempts_to(GetCardStatus(2642))
+
+
+@pytest_bdd.when("user gets card status with id 2643")
+def get_card_2643(the_actor: Actor):
+    the_actor.attempts_to(GetCardStatus(2643))
+
+
+@pytest_bdd.when("user gets card status with id 2640")
+def get_card_2640(the_actor: Actor):
+    the_actor.attempts_to(GetCardStatus(2640))
+
+
+@pytest_bdd.when("user gets card status without token for id 2642")
+def get_without_token(the_actor: Actor):
+    the_actor.attempts_to(GetCardStatus(2642, with_token=False))
+
+
+# ======================
+# THEN
+# ======================
+@pytest_bdd.then("response status should be 200")
+def validate_200(the_actor: Actor):
+    assert StatusCode().answered_by(the_actor) == 200
+
+
+@pytest_bdd.then("response status should be 404")
+def validate_404(the_actor: Actor):
+    assert StatusCode().answered_by(the_actor) == 404
+
+
+@pytest_bdd.then("response status should be 403")
+def validate_403(the_actor: Actor):
+    assert StatusCode().answered_by(the_actor) in [403, 404]
+
+
+@pytest_bdd.then("response status should be 401")
+def validate_401(the_actor: Actor):
+    assert StatusCode().answered_by(the_actor) == 401
+
+//
 
