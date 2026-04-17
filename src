@@ -1,1 +1,169 @@
 
+🔹 Questions (importante)
+
+the_body_of_the_last_response.TheLastBodyResponse.as_(Model)
+
+🔹 Manejo de token
+////
+what_is_my.api_token().answered_by(actor)
+
+📍 credit_card/repository/credit_card_repository.py
+
+class CreditCardEndpoints:
+    GET_CARD_STATUS = "/cards/{card_id}/status"
+////////
+📍 credit_card/model/response/card_status_response.py
+
+
+import pydantic
+
+
+class CardStatusPayload(pydantic.BaseModel):
+    id: int
+    status: str
+    card_type: str
+
+
+class Error(pydantic.BaseModel):
+    message: str
+    type: str
+
+
+class CardStatusResponse(pydantic.BaseModel):
+    payload: dict | None
+    errors: list | None
+
+//////
+
+📍 credit_card/tasks/get_card_status.py
+
+import screenpy
+from screenpy import Actor
+from screenpy.pacing import beat
+
+from bold_platform_regression.backend.banking.commons import call_api
+from credit_card.repository.credit_card_repository import CreditCardEndpoints
+from bold_platform_regression.backend.banking.commons.questions import what_is_my
+from bold_platform_regression.backend.banking.commons.utils import http_constants
+from bold_platform_regression.backend.banking.commons import base
+
+
+class GetCardStatus:
+
+    def __init__(self, card_id: int, with_token: bool = True):
+        self.card_id = card_id
+        self.with_token = with_token
+
+    @beat("{0} gets card status")
+    def perform_as(self, the_actor: Actor) -> None:
+
+        url = base.Url.BaseUrl.backend_mobile() + \
+              CreditCardEndpoints.GET_CARD_STATUS.format(card_id=self.card_id)
+
+        if self.with_token:
+            the_actor.attempts_to(
+                call_api.SetHeaders(
+                    http_constants.HEADER_NAME_AUTH,
+                    http_constants.HEADER_VALUE_OAUTH2 %
+                    what_is_my.api_token().answered_by(the_actor)
+                )
+            )
+
+        the_actor.attempts_to(
+            call_api.SendGETRequest.to(url)
+        )
+
+///////
+
+📍 credit_card/questions/card_status_code.py
+
+
+import screenpy
+
+
+class CardStatusCode:
+
+    def answered_by(self, the_actor: screenpy.Actor) -> int:
+        return the_actor.recall("last_response").status_code
+
+///
+
+📍 credit_card/questions/card_status_body.py
+
+from bold_platform_regression.backend.banking.commons.questions import the_body_of_the_last_response
+from credit_card.model.response.card_status_response import CardStatusResponse
+
+
+class CardStatusBody:
+
+    def answered_by(self, actor):
+        return the_body_of_the_last_response.TheLastBodyResponse.as_(CardStatusResponse).answered_by(actor)
+
+////
+📍 credit_card/data/card_data.py
+
+VALID_CARD_ID = 2642
+INVALID_CARD_ID = 2643
+OTHER_USER_CARD_ID = 2640
+
+////
+
+
+📍 credit_card/tests/test_card_status.py
+
+
+import pytest
+
+from screenpy import Actor
+
+from credit_card.tasks.get_card_status import GetCardStatus
+from credit_card.questions.card_status_body import CardStatusBody
+from credit_card.data.card_data import (
+    VALID_CARD_ID,
+    INVALID_CARD_ID,
+    OTHER_USER_CARD_ID
+)
+
+
+def test_card_status_success(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatus(VALID_CARD_ID)
+    )
+
+    response = CardStatusBody().answered_by(the_actor)
+
+    assert response.payload is not None
+    assert response.errors is None
+
+
+def test_card_not_found(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatus(INVALID_CARD_ID)
+    )
+
+    response = CardStatusBody().answered_by(the_actor)
+
+    assert response.payload == {}
+    assert response.errors is not None
+
+
+def test_card_other_user(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatus(OTHER_USER_CARD_ID)
+    )
+
+    response = CardStatusBody().answered_by(the_actor)
+
+    assert response.errors is not None
+
+
+def test_card_without_token(the_actor: Actor):
+    the_actor.attempts_to(
+        GetCardStatus(VALID_CARD_ID, with_token=False)
+    )
+
+    response = CardStatusBody().answered_by(the_actor)
+
+    assert response is not None
+
+////
