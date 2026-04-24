@@ -1,1 +1,274 @@
+backend/banking/credit_card/utils/constants/cards_constants.py
 
+VALID_CARD_ID = 2642
+INVALID_CARD_ID = 9999
+OTHER_USER_CARD_ID = 2640
+
+STATUS_ACTIVE = "active"
+CARD_TYPE_PHYSICAL = "physical"
+
+ERROR_NOT_FOUND = "Not found"
+ERROR_UNAUTHORIZED = "Unauthorized"
+
+//
+card_data.py
+
+from backend.banking.credit_card.utils.constants import cards_constants
+
+
+class CardData:
+
+    @staticmethod
+    def valid_card():
+        return cards_constants.VALID_CARD_ID
+
+    @staticmethod
+    def invalid_card():
+        return cards_constants.INVALID_CARD_ID
+
+    @staticmethod
+    def other_user_card():
+        return cards_constants.OTHER_USER_CARD_ID
+
+///
+📂 MODEL (ROBUSTO)
+
+import pydantic
+from typing import Optional, List
+
+
+class User(pydantic.BaseModel):
+    id: int
+    email: str
+    first_name: str
+    last_name: str
+    suspended: bool
+    cellphone: str
+
+
+class Issuer(User):
+    pass
+
+
+class Payload(pydantic.BaseModel):
+    id: int
+    name: str
+    card_type: str
+    status: str
+    has_pin: bool
+    issuer: Issuer
+    user: User
+
+
+class Error(pydantic.BaseModel):
+    message: str
+    type: str
+
+
+class GetCardStatusResponse(pydantic.BaseModel):
+    payload: Optional[Payload] = None
+    errors: Optional[List[Error]] = None
+
+
+class UnauthorizedResponse(pydantic.BaseModel):
+    message: str
+
+
+////
+ACTION 
+
+import screenplay
+from screenplay import actions, pacing
+
+from backend.commons.utils.uri import base_url
+from commons.screenplay.actions import call_api
+from commons.screenplay.questions import what_is
+
+
+class GetCardStatus:
+
+    def __init__(self, card_id: int):
+        self.card_id = card_id
+
+    @pacing.beat("{} gets card status")
+    def perform_as(self, the_actor: screenplay.AnActor) -> None:
+
+        url = base_url.BaseUrl.credit_card() + f"/cards/{self.card_id}"
+
+        token = what_is.My.api_token().answered_by(the_actor)
+
+        the_actor.attempts_to(
+            actions.call_api.SetHeaders(
+                "Authorization",
+                f"Bearer {token}",
+                "accept",
+                "application/json",
+            ),
+            call_api.SendGETRequest.to(url),
+        )
+/////
+
+QUESTIONS
+from commons.screenplay.questions import what_is
+from backend.banking.credit_card.model.response.get_card_status_response import (
+    GetCardStatusResponse,
+    UnauthorizedResponse
+)
+
+
+class RawResponse:
+
+    def answered_by(self, the_actor):
+        return what_is.TheLastResponse.body().answered_by(the_actor)
+
+
+class CardResponse:
+
+    def answered_by(self, the_actor):
+        body = RawResponse().answered_by(the_actor)
+
+        if "message" in body and "payload" not in body:
+            return UnauthorizedResponse(**body)
+
+        return GetCardStatusResponse(**body)
+
+
+class CardPayload:
+
+    def answered_by(self, the_actor):
+        return CardResponse().answered_by(the_actor).payload
+
+
+class CardErrors:
+
+    def answered_by(self, the_actor):
+        return CardResponse().answered_by(the_actor).errors
+
+
+class CardStatus:
+
+    def answered_by(self, the_actor):
+        return CardPayload().answered_by(the_actor).status
+
+
+class ErrorMessage:
+
+    def answered_by(self, the_actor):
+        response = CardResponse().answered_by(the_actor)
+
+        if hasattr(response, "errors") and response.errors:
+            return response.errors[0].message
+
+        if hasattr(response, "message"):
+            return response.message
+
+        return None
+
+/////
+
+Feature: Get card status
+
+  Scenario: Get card successfully
+    Given Alejandra is authenticated
+    When Alejandra gets card status with valid card id
+    Then Alejandra should see correct card information
+
+  Scenario: Card not found
+    Given Alejandra is authenticated
+    When Alejandra gets card status with invalid card id
+    Then Alejandra should see not found error
+
+  Scenario: Unauthorized request
+    Given Alejandra without token
+    When Alejandra gets card status with valid card id
+    Then Alejandra should see unauthorized error
+
+///
+import pytest_bdd
+
+from backend.banking.credit_card.actions.get_card_status import GetCardStatus
+from backend.banking.credit_card.questions.get_card_status import (
+    CardPayload,
+    CardErrors,
+    CardStatus,
+    ErrorMessage
+)
+from backend.banking.credit_card.data.card_data import CardData
+from backend.banking.credit_card.utils.constants import cards_constants
+
+
+pytest_bdd.scenarios("../features/get_card_status.feature")
+
+
+@pytest_bdd.given("Alejandra is authenticated")
+def alejandra_authenticated(the_actor):
+    pass
+
+
+@pytest_bdd.given("Alejandra without token")
+def alejandra_without_token(the_actor):
+    the_actor.remember("api_token", "")
+
+
+@pytest_bdd.when("Alejandra gets card status with valid card id")
+def get_valid_card(the_actor):
+    the_actor.attempts_to(
+        GetCardStatus(CardData.valid_card())
+    )
+
+
+@pytest_bdd.when("Alejandra gets card status with invalid card id")
+def get_invalid_card(the_actor):
+    the_actor.attempts_to(
+        GetCardStatus(CardData.invalid_card())
+    )
+
+
+@pytest_bdd.then("Alejandra should see correct card information")
+def validate_success(the_actor):
+    payload = CardPayload().answered_by(the_actor)
+
+    assert payload is not None
+
+    assert isinstance(payload.id, int)
+    assert isinstance(payload.name, str)
+    assert isinstance(payload.card_type, str)
+    assert isinstance(payload.status, str)
+    assert isinstance(payload.has_pin, bool)
+
+    assert payload.id == CardData.valid_card()
+    assert payload.status == cards_constants.STATUS_ACTIVE
+    assert payload.card_type == cards_constants.CARD_TYPE_PHYSICAL
+
+    assert payload.user.id > 0
+    assert "@" in payload.user.email
+    assert payload.user.first_name != ""
+    assert payload.user.last_name != ""
+    assert isinstance(payload.user.suspended, bool)
+    assert payload.user.cellphone.isdigit()
+
+    assert payload.issuer.id > 0
+    assert "@" in payload.issuer.email
+    assert payload.issuer.first_name != ""
+    assert payload.issuer.last_name != ""
+    assert isinstance(payload.issuer.suspended, bool)
+    assert payload.issuer.cellphone.isdigit()
+
+    errors = CardErrors().answered_by(the_actor)
+    assert errors is None
+
+
+@pytest_bdd.then("Alejandra should see not found error")
+def validate_not_found(the_actor):
+    error = ErrorMessage().answered_by(the_actor)
+
+    assert error == cards_constants.ERROR_NOT_FOUND
+
+
+@pytest_bdd.then("Alejandra should see unauthorized error")
+def validate_unauthorized(the_actor):
+    error = ErrorMessage().answered_by(the_actor)
+
+    assert error == cards_constants.ERROR_UNAUTHORIZED
+
+///
