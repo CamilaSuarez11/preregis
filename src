@@ -1,1 +1,183 @@
+📂 actions/get_card_status.py
 
+
+from commons.screenplay.actions import call_api
+from commons.screenplay.utils import http_constants
+from commons.utils.uri import base_url
+from commons.utils.uri import credit_card as credit_card_paths
+
+
+class GetCardStatus:
+
+    def __init__(self, card_id: int):
+        self.card_id = card_id
+
+    @staticmethod
+    def with_id(card_id: int):
+        return GetCardStatus(card_id)
+
+    def perform_as(self, the_actor):
+
+        url = (
+            base_url.BaseUrl.credit_card()
+            + credit_card_paths.CARD_ID.format(card_id=self.card_id)
+        )
+
+        the_actor.attempts_to(
+            call_api.CallApi(
+                method=http_constants.GET,
+                url=url
+            )
+        )
+//////////////////
+
+📂 tasks/get_card_status.py
+
+
+from backend.banking.credit_card.actions.get_card_status import GetCardStatus
+
+
+class GetCardStatusTask:
+
+    def __init__(self, card_id: int):
+        self.card_id = card_id
+
+    @staticmethod
+    def with_id(card_id: int):
+        return GetCardStatusTask(card_id)
+
+    def perform_as(self, the_actor):
+        the_actor.attempts_to(
+            GetCardStatus.with_id(self.card_id)
+        )
+
+///////////
+📂 questions/card_status_questions.py
+
+from commons.screenplay.questions import question
+
+
+class TheCardResponse:
+
+    def answered_by(self, the_actor):
+        return the_actor.asks_for(
+            question.TheLastBodyResponse()
+        )
+
+
+class TheCardStatus:
+
+    def answered_by(self, the_actor):
+        body = the_actor.asks_for(
+            question.TheLastBodyResponse()
+        )
+        return body.get("status")
+
+//////
+📂 features/get_card_status.feature
+
+Feature: Get credit card status
+
+  Scenario: Get valid card status
+    Given Alejandra is authenticated
+    When Alejandra gets card status with valid card
+    Then response status should be 200
+    And card status should be active
+
+  Scenario: Card not found
+    Given Alejandra is authenticated
+    When Alejandra gets card status with invalid card
+    Then response status should be 404
+
+  Scenario: Card belongs to another user
+    Given Alejandra is authenticated
+    When Alejandra gets card status with other user card
+    Then response status should be 403
+
+/////
+📂 tests/test_get_card_status.py
+
+import pytest
+import pytest_bdd
+
+from commons.screenplay.actors import the_actor_character
+from commons.screenplay.actors import bold_actors
+
+from backend.banking.credit_card.tasks.get_card_status import GetCardStatusTask
+from backend.banking.credit_card.questions.card_status_questions import TheCardStatus
+from backend.banking.credit_card.utils.constants import cards_constants
+
+
+pytest_bdd.scenarios("../features/get_card_status.feature")
+
+
+@pytest.fixture
+def the_actor():
+    return bold_actors.TheActor()
+
+
+# =========================
+# GIVEN
+# =========================
+@pytest_bdd.given("Alejandra is authenticated")
+def aleja_authenticated(the_actor):
+    the_actor.for_api_called(
+        the_actor_character.Character.ALEJANDRA
+    )
+
+
+# =========================
+# WHEN
+# =========================
+@pytest_bdd.when("Alejandra gets card status with valid card")
+def get_valid_card(the_actor):
+    the_actor.attempts_to(
+        GetCardStatusTask.with_id(cards_constants.VALID_CARD_ID)
+    )
+
+
+@pytest_bdd.when("Alejandra gets card status with invalid card")
+def get_invalid_card(the_actor):
+    the_actor.attempts_to(
+        GetCardStatusTask.with_id(cards_constants.INVALID_CARD_ID)
+    )
+
+
+@pytest_bdd.when("Alejandra gets card status with other user card")
+def get_other_user_card(the_actor):
+    the_actor.attempts_to(
+        GetCardStatusTask.with_id(cards_constants.OTHER_USER_CARD_ID)
+    )
+
+
+# =========================
+# THEN - STATUS CODE
+# =========================
+@pytest_bdd.then("response status should be 200")
+def status_200(the_actor):
+    the_actor.should(
+        bold_actors.See.the_response_status_code().is_equal_to(200)
+    )
+
+
+@pytest_bdd.then("response status should be 404")
+def status_404(the_actor):
+    the_actor.should(
+        bold_actors.See.the_response_status_code().is_equal_to(404)
+    )
+
+
+@pytest_bdd.then("response status should be 403")
+def status_403(the_actor):
+    the_actor.should(
+        bold_actors.See.the_response_status_code().is_equal_to(403)
+    )
+
+
+# =========================
+# THEN - BUSINESS VALIDATION
+# =========================
+@pytest_bdd.then("card status should be active")
+def validate_card_status(the_actor):
+    status = TheCardStatus().answered_by(the_actor)
+    assert status.lower() == "active"
