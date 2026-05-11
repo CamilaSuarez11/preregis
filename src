@@ -1,1 +1,11 @@
-
+AC2: El sistema debe consumir correctamente el endpoint POST /cards/{id}/retire enviando el reason_id correspondiente y validar respuesta exitosa.
+•⁠  ⁠AC3: El sistema debe validar que la tarjeta quede en estado bloqueado/retiro después de ejecutar el endpoint de bloqueo.
+•⁠  ⁠AC4: El sistema debe consumir correctamente el endpoint GET /cards/reissue_info?card_type=physical y validar la información retornada para la reemisión de tarjeta.
+•⁠  ⁠AC5: El sistema debe consumir correctamente el endpoint POST /activate_virtual_card enviando un nuevo PIN válido y validar respuesta exitosa.
+•⁠  ⁠AC6: El sistema debe validar que el cambio de PIN de la tarjeta se procese correctamente.
+•⁠  ⁠AC7: El sistema debe validar los status code esperados para cada endpoint consumido durante el flujo.
+•⁠  ⁠AC8: El sistema debe validar la estructura y contenido de los responses retornados por cada servicio.
+•⁠  ⁠AC9: El sistema debe generar evidencias de ejecución en Allure para el flujo automatizado.
+•⁠  ⁠AC10: La automatización debe ejecutarse de manera estable e independiente sin afectar otros flujos existentes del módulo credit_card.
+•⁠  ⁠AC11: El sistema debe manejar correctamente variables dinámicas como card_id, tokens y datos de entrada requeridos para el flujo.
+•⁠  ⁠AC12: El sistema debe permitir reutilización de componentes siguiendo la estructura modular actual del proyecto (actions, tasks, tests, features y model responses).
